@@ -1,0 +1,355 @@
+/*
+# TNFarm - Tamil Nadu Farmers Social Commerce Platform
+
+## Overview
+Creates the full schema for TNFarm, an Instagram-style farmer discovery platform.
+Customers discover farmers, view products, chat, and visit farms directly — no ordering,
+cart, payment, or delivery. Three roles: farmer, customer, admin.
+
+## New Tables
+1. profiles — extends auth.users with role, name, avatar, bio, village, district, organic status, farming experience
+2. farms — farm details (cover, description, GPS lat/lng, address) linked to a farmer
+3. categories — product categories (vegetables, fruits, grains, dairy, spices)
+4. products — farm products with image, price, quantity, harvest date, organic badge
+5. posts — social posts (photo/reel/video) by farmers
+6. comments — comments on posts
+7. likes — likes on posts (unique per user per post)
+8. follows — customer follows farmer (unique per pair)
+9. messages — chat messages between users (text + image)
+10. reviews — customer ratings/reviews of farmers
+11. notifications — user notifications
+12. saved_products — customer saved/favorite products
+13. saved_posts — customer saved posts
+14. recently_viewed — customer recently viewed products
+
+## Security
+- RLS enabled on every table.
+- All content is readable by any authenticated user (social/public discovery model).
+- Writes are owner-scoped: each user can only insert/update/delete their own rows
+  (own profile, own farm, own products, own posts, own comments, own likes, own follows,
+   own messages they send, own reviews, own saves, own notifications).
+- Owner columns default to auth.uid() so inserts omitting the owner still satisfy WITH CHECK.
+*/
+
+-- profiles
+CREATE TABLE IF NOT EXISTS profiles (
+  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  role text NOT NULL DEFAULT 'customer' CHECK (role IN ('farmer', 'customer', 'admin')),
+  name text NOT NULL DEFAULT '',
+  avatar_url text,
+  phone text,
+  bio text,
+  village text,
+  district text,
+  organic_status text DEFAULT 'conventional' CHECK (organic_status IN ('organic', 'conventional', 'in_conversion')),
+  farming_experience int DEFAULT 0,
+  verified boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "profiles_select_all" ON profiles;
+CREATE POLICY "profiles_select_all" ON profiles FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "profiles_insert_own" ON profiles;
+CREATE POLICY "profiles_insert_own" ON profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "profiles_update_own" ON profiles;
+CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
+-- farms
+CREATE TABLE IF NOT EXISTS farms (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  farmer_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name text NOT NULL DEFAULT '',
+  cover_url text,
+  description text,
+  latitude numeric(9,6),
+  longitude numeric(9,6),
+  address text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE farms ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "farms_select_all" ON farms;
+CREATE POLICY "farms_select_all" ON farms FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "farms_insert_own" ON farms;
+CREATE POLICY "farms_insert_own" ON farms FOR INSERT TO authenticated WITH CHECK (auth.uid() = farmer_id);
+
+DROP POLICY IF EXISTS "farms_update_own" ON farms;
+CREATE POLICY "farms_update_own" ON farms FOR UPDATE TO authenticated USING (auth.uid() = farmer_id) WITH CHECK (auth.uid() = farmer_id);
+
+DROP POLICY IF EXISTS "farms_delete_own" ON farms;
+CREATE POLICY "farms_delete_own" ON farms FOR DELETE TO authenticated USING (auth.uid() = farmer_id);
+
+-- categories
+CREATE TABLE IF NOT EXISTS categories (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  icon text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "categories_select_all" ON categories;
+CREATE POLICY "categories_select_all" ON categories FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "categories_insert_own" ON categories;
+CREATE POLICY "categories_insert_own" ON categories FOR INSERT TO authenticated WITH CHECK (true);
+
+-- products
+CREATE TABLE IF NOT EXISTS products (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  farm_id uuid NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
+  farmer_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
+  category_id uuid REFERENCES categories(id) ON DELETE SET NULL,
+  name text NOT NULL,
+  price numeric(10,2) NOT NULL DEFAULT 0,
+  quantity text NOT NULL DEFAULT '',
+  description text,
+  image_url text,
+  harvest_date date,
+  is_organic boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "products_select_all" ON products;
+CREATE POLICY "products_select_all" ON products FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "products_insert_own" ON products;
+CREATE POLICY "products_insert_own" ON products FOR INSERT TO authenticated WITH CHECK (auth.uid() = farmer_id);
+
+DROP POLICY IF EXISTS "products_update_own" ON products;
+CREATE POLICY "products_update_own" ON products FOR UPDATE TO authenticated USING (auth.uid() = farmer_id) WITH CHECK (auth.uid() = farmer_id);
+
+DROP POLICY IF EXISTS "products_delete_own" ON products;
+CREATE POLICY "products_delete_own" ON products FOR DELETE TO authenticated USING (auth.uid() = farmer_id);
+
+-- posts
+CREATE TABLE IF NOT EXISTS posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  farmer_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
+  type text NOT NULL DEFAULT 'post' CHECK (type IN ('post', 'reel', 'video')),
+  image_url text,
+  video_url text,
+  caption text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "posts_select_all" ON posts;
+CREATE POLICY "posts_select_all" ON posts FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "posts_insert_own" ON posts;
+CREATE POLICY "posts_insert_own" ON posts FOR INSERT TO authenticated WITH CHECK (auth.uid() = farmer_id);
+
+DROP POLICY IF EXISTS "posts_update_own" ON posts;
+CREATE POLICY "posts_update_own" ON posts FOR UPDATE TO authenticated USING (auth.uid() = farmer_id) WITH CHECK (auth.uid() = farmer_id);
+
+DROP POLICY IF EXISTS "posts_delete_own" ON posts;
+CREATE POLICY "posts_delete_own" ON posts FOR DELETE TO authenticated USING (auth.uid() = farmer_id);
+
+-- comments
+CREATE TABLE IF NOT EXISTS comments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
+  content text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "comments_select_all" ON comments;
+CREATE POLICY "comments_select_all" ON comments FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "comments_insert_own" ON comments;
+CREATE POLICY "comments_insert_own" ON comments FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "comments_delete_own" ON comments;
+CREATE POLICY "comments_delete_own" ON comments FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+-- likes
+CREATE TABLE IF NOT EXISTS likes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (post_id, user_id)
+);
+ALTER TABLE likes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "likes_select_all" ON likes;
+CREATE POLICY "likes_select_all" ON likes FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "likes_insert_own" ON likes;
+CREATE POLICY "likes_insert_own" ON likes FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "likes_delete_own" ON likes;
+CREATE POLICY "likes_delete_own" ON likes FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+-- follows
+CREATE TABLE IF NOT EXISTS follows (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  follower_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
+  following_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (follower_id, following_id)
+);
+ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "follows_select_all" ON follows;
+CREATE POLICY "follows_select_all" ON follows FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "follows_insert_own" ON follows;
+CREATE POLICY "follows_insert_own" ON follows FOR INSERT TO authenticated WITH CHECK (auth.uid() = follower_id);
+
+DROP POLICY IF EXISTS "follows_delete_own" ON follows;
+CREATE POLICY "follows_delete_own" ON follows FOR DELETE TO authenticated USING (auth.uid() = follower_id);
+
+-- messages
+CREATE TABLE IF NOT EXISTS messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  sender_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
+  receiver_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  content text,
+  image_url text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "messages_select_own" ON messages;
+CREATE POLICY "messages_select_own" ON messages FOR SELECT TO authenticated USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
+
+DROP POLICY IF EXISTS "messages_insert_own" ON messages;
+CREATE POLICY "messages_insert_own" ON messages FOR INSERT TO authenticated WITH CHECK (auth.uid() = sender_id);
+
+-- reviews
+CREATE TABLE IF NOT EXISTS reviews (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  farmer_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  customer_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
+  rating int NOT NULL DEFAULT 5 CHECK (rating BETWEEN 1 AND 5),
+  content text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "reviews_select_all" ON reviews;
+CREATE POLICY "reviews_select_all" ON reviews FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "reviews_insert_own" ON reviews;
+CREATE POLICY "reviews_insert_own" ON reviews FOR INSERT TO authenticated WITH CHECK (auth.uid() = customer_id);
+
+DROP POLICY IF EXISTS "reviews_delete_own" ON reviews;
+CREATE POLICY "reviews_delete_own" ON reviews FOR DELETE TO authenticated USING (auth.uid() = customer_id);
+
+-- notifications
+CREATE TABLE IF NOT EXISTS notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  body text,
+  is_read boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "notifications_select_own" ON notifications;
+CREATE POLICY "notifications_select_own" ON notifications FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "notifications_insert_own" ON notifications;
+CREATE POLICY "notifications_insert_own" ON notifications FOR INSERT TO authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "notifications_update_own" ON notifications;
+CREATE POLICY "notifications_update_own" ON notifications FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- saved_products
+CREATE TABLE IF NOT EXISTS saved_products (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
+  product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, product_id)
+);
+ALTER TABLE saved_products ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "saved_products_select_own" ON saved_products;
+CREATE POLICY "saved_products_select_own" ON saved_products FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "saved_products_insert_own" ON saved_products;
+CREATE POLICY "saved_products_insert_own" ON saved_products FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "saved_products_delete_own" ON saved_products;
+CREATE POLICY "saved_products_delete_own" ON saved_products FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+-- saved_posts
+CREATE TABLE IF NOT EXISTS saved_posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
+  post_id uuid NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, post_id)
+);
+ALTER TABLE saved_posts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "saved_posts_select_own" ON saved_posts;
+CREATE POLICY "saved_posts_select_own" ON saved_posts FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "saved_posts_insert_own" ON saved_posts;
+CREATE POLICY "saved_posts_insert_own" ON saved_posts FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "saved_posts_delete_own" ON saved_posts;
+CREATE POLICY "saved_posts_delete_own" ON saved_posts FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+-- recently_viewed
+CREATE TABLE IF NOT EXISTS recently_viewed (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES profiles(id) ON DELETE CASCADE,
+  product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  viewed_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE recently_viewed ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "recently_viewed_select_own" ON recently_viewed;
+CREATE POLICY "recently_viewed_select_own" ON recently_viewed FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "recently_viewed_insert_own" ON recently_viewed;
+CREATE POLICY "recently_viewed_insert_own" ON recently_viewed FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "recently_viewed_delete_own" ON recently_viewed;
+CREATE POLICY "recently_viewed_delete_own" ON recently_viewed FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_products_farmer ON products(farmer_id);
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_posts_farmer ON posts(farmer_id);
+CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
+CREATE INDEX IF NOT EXISTS idx_likes_post ON likes(post_id);
+CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);
+CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);
+CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_farmer ON reviews(farmer_id);
+
+-- Function to auto-create profile on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, name, avatar_url)
+  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'name', 'New User'), NEW.raw_user_meta_data->>'avatar_url')
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
