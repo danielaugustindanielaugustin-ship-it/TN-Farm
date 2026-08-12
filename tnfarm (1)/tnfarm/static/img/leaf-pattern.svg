@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250" width="400" height="250">
-  <rect width="400" height="250" fill="#e8f0e3"/>
-  <circle cx="200" cy="125" r="60" fill="#a5d6a7" opacity="0.6"/>
-  <path d="M200 80 C230 100 230 150 200 170 C170 150 170 100 200 80 Z" fill="#2e7d32" opacity="0.8"/>
-  <text x="200" y="220" font-family="Poppins, sans-serif" font-size="16" fill="#2e7d32" text-anchor="middle">TNFarm</text>
-</svg>
