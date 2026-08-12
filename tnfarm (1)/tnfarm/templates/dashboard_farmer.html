@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Farmer Dashboard{% endblock %}
+{% block content %}
+<div class="container">
+  <h2>Welcome back, {{ current_user.name.split(' ')[0] }} 🌾</h2>
+  <div class="dash-grid">
+    <div class="dash-card"><b>{{ stats.products }}</b><span>Products</span></div>
+    <div class="dash-card"><b>{{ stats.posts }}</b><span>Posts</span></div>
+    <div class="dash-card"><b>{{ stats.followers }}</b><span>Followers</span></div>
+    <div class="dash-card"><b>{{ stats.reviews }}</b><span>Reviews</span></div>
+    <div class="dash-card"><b>⭐ {{ stats.avg_rating }}</b><span>Avg Rating</span></div>
+    <div class="dash-card"><b>{{ stats.unread_messages }}</b><span>Unread Messages</span></div>
+  </div>
+
+  <div style="display:flex; gap:12px; margin:20px 0;">
+    <a href="{{ url_for('new_product') }}" class="btn btn-primary">+ Add Product</a>
+    <a href="{{ url_for('new_post') }}" class="btn btn-secondary">+ New Post</a>
+    <a href="{{ url_for('edit_farm') }}" class="btn btn-outline">Edit Farm Profile</a>
+    <a href="{{ url_for('farm_profile', farm_id=farm.id) }}" class="btn btn-ghost">View Public Profile</a>
+  </div>
+
+  <section class="section">
+    <h3>Your Products</h3>
+    {% if my_products %}
+      <table>
+        <tr><th>Product</th><th>Price</th><th>Stock</th><th>Organic</th><th></th></tr>
+        {% for p in my_products %}
+          <tr>
+            <td>{{ p.name }}</td>
+            <td>₹{{ p.price|round(2) }} / {{ p.unit }}</td>
+            <td>{{ p.quantity_available }} {{ p.unit }}</td>
+            <td>{{ '✅' if p.is_organic else '—' }}</td>
+            <td><a href="{{ url_for('edit_product', product_id=p.id) }}" class="btn btn-sm btn-outline">✏️ Edit</a></td>
+          </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <p class="empty">You haven't added any products yet. <a href="{{ url_for('new_product') }}">Add your first product →</a></p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Product' if product else 'Add Product' }}{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="form-card wide">
+    <h2 class="form-title">{{ 'Edit Product' if product else 'Add a new Product' }}</h2>
+    <form method="post" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>Product Name</label>
+        <input type="text" name="name" id="name" value="{{ product.name if product else '' }}" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Category</label>
+          <select name="category_id" id="category_id">
+            {% for c in categories %}
+              <option value="{{ c.id }}" {% if product and product.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Unit</label>
+          <select name="unit">
+            {% for u in ['kg', 'gram', 'litre', 'dozen', 'piece', 'bunch'] %}
+              <option value="{{ u }}" {% if product and product.unit == u %}selected{% endif %}>{{ u }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Price (₹)</label>
+          <input type="number" step="0.01" name="price" value="{{ product.price if product else '' }}" required>
+        </div>
+        <div class="form-group">
+          <label>Quantity Available</label>
+          <input type="number" step="0.1" name="quantity_available" value="{{ product.quantity_available if product else '' }}">
+        </div>
+      </div>
+      {% if not product %}
+      <div class="form-group">
+        <label>Harvest Date</label>
+        <input type="date" name="harvest_date">
+      </div>
+      {% endif %}
+      <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" id="description" rows="3">{{ product.description if product else '' }}</textarea>
+        <button type="button" class="ai-suggest-btn" id="ai-suggest-desc">✨ Suggest with AI</button>
+      </div>
+      <div class="form-group">
+        <label>Product Image</label>
+        <input type="file" name="image" accept="image/*">
+      </div>
+      <div class="checkbox-row" style="margin-bottom:12px;">
+        <input type="checkbox" name="is_organic" id="is_organic" {% if product and product.is_organic %}checked{% endif %}>
+        <label for="is_organic" style="margin:0;">Organic product</label>
+      </div>
+      {% if product %}
+      <div class="checkbox-row" style="margin-bottom:16px;">
+        <input type="checkbox" name="is_available" id="is_available" {% if product.is_available %}checked{% endif %}>
+        <label for="is_available" style="margin:0;">Available for sale</label>
+      </div>
+      {% endif %}
+      <button class="btn btn-primary btn-block" type="submit">{{ 'Save Changes' if product else 'Add Product' }}</button>
+    </form>
+    {% if product %}
+    <form method="post" action="{{ url_for('delete_product', product_id=product.id) }}" onsubmit="return confirm('Delete this product?');" style="margin-top:10px;">
+      <button class="btn btn-danger btn-block" type="submit">Delete Product</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+<script>
+document.getElementById('ai-suggest-desc').addEventListener('click', async (e) => {
+  const btn = e.target;
+  const name = document.getElementById('name').value || 'this product';
+  const categorySelect = document.getElementById('category_id');
+  const categoryName = categorySelect.options[categorySelect.selectedIndex] ? categorySelect.options[categorySelect.selectedIndex].text : '';
+  const isOrganic = document.getElementById('is_organic').checked;
+
+  btn.disabled = true;
+  btn.textContent = 'Generating...';
+  try {
+    const res = await fetch('/api/suggest-product-description', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, category_name: categoryName, is_organic: isOrganic })
+    });
+    const data = await res.json();
+    document.getElementById('description').value = data.description;
+  } catch (err) {
+    alert('Could not generate a suggestion right now.');
+  }
+  btn.disabled = false;
+  btn.textContent = '✨ Suggest with AI';
+});
+</script>
+{% endblock %}

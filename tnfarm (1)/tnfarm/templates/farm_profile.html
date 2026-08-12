@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}{{ farm.farm_name }}{% endblock %}
+{% block content %}
+<div class="container">
+  <img class="farm-cover" src="{{ url_for('static', filename='uploads/' + farm.cover_photo) if farm.cover_photo != 'default-cover.jpg' else url_for('static', filename='img/leaf-pattern.svg') }}" onerror="this.src='{{ url_for('static', filename='img/leaf-pattern.svg') }}'">
+
+  <div class="farm-header">
+    <img class="farm-logo" src="{{ url_for('static', filename='uploads/' + farm.logo) if farm.logo != 'default-farm-logo.png' else url_for('static', filename='img/leaf-pattern.svg') }}" onerror="this.src='{{ url_for('static', filename='img/leaf-pattern.svg') }}'">
+    <div class="farm-meta">
+      <h1>{{ farm.farm_name }} {% if farm.verified %}<span class="badge badge-verified">✅ Verified</span>{% endif %}</h1>
+      <p>{{ farm.village }}, {{ farm.district }} — {{ farm.pincode }}</p>
+      {% if farm.organic_status == 'Certified' %}<span class="badge badge-organic">Organic Certified</span>{% endif %}
+    </div>
+    <div style="margin-left:auto; display:flex; gap:10px;">
+      {% if current_user.is_authenticated and current_user.id == farm.owner_id %}
+        <a href="{{ url_for('edit_farm') }}" class="btn btn-outline">Edit Farm</a>
+        <a href="{{ url_for('new_product') }}" class="btn btn-primary">+ Add Product</a>
+      {% elif current_user.is_authenticated %}
+        <button class="btn {% if is_following %}btn-ghost{% else %}btn-primary{% endif %}" id="follow-btn" data-farm="{{ farm.id }}">
+          {{ 'Following' if is_following else 'Follow' }}
+        </button>
+        <a href="{{ url_for('conversation', user_id=farm.owner_id) }}" class="btn btn-outline">Message</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat"><b>{{ farm.follower_count }}</b><span>Followers</span></div>
+    <div class="stat"><b>{{ products|length }}</b><span>Products</span></div>
+    <div class="stat"><b>⭐ {{ farm.avg_rating }}</b><span>{{ reviews|length }} Reviews</span></div>
+    <div class="stat"><b>{{ farm.experience_years }}</b><span>Years Experience</span></div>
+    <div class="stat"><b>{{ farm.farm_area or '—' }}</b><span>Farm Area</span></div>
+  </div>
+
+  {% if farm.description %}<p>{{ farm.description }}</p>{% endif %}
+
+  <div class="tabs">
+    <a href="#products" class="active">Products</a>
+    <a href="#posts">Posts</a>
+    <a href="#reviews">Reviews</a>
+    <a href="#location">Location</a>
+  </div>
+
+  <section id="products" class="section">
+    <div class="grid grid-4">
+      {% for p in products %}
+        <a class="card" href="{{ url_for('product_detail', product_id=p.id) }}">
+          <img class="card-img" src="{{ url_for('static', filename='uploads/' + p.image) if p.image != 'default-product.jpg' else url_for('static', filename='img/leaf-pattern.svg') }}" onerror="this.src='{{ url_for('static', filename='img/leaf-pattern.svg') }}'">
+          <div class="card-body">
+            <p class="card-title">{{ p.name }}</p>
+            <p class="price">₹{{ p.price|round(2) }} / {{ p.unit }}</p>
+            {% if p.is_organic %}<span class="badge badge-organic">Organic</span>{% endif %}
+            {% if not p.is_available %}<span class="badge" style="background:#fdecea;color:#c0392b;">Out of stock</span>{% endif %}
+          </div>
+        </a>
+      {% else %}
+        <p class="empty">No products listed yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section id="posts" class="section">
+    <h3>Posts</h3>
+    {% for post in posts %}
+      <div class="post-card">
+        <div class="post-head">
+          <div><b>{{ post.author.name }}</b><div class="post-meta">{{ post.location }} · {{ post.created_at.strftime('%d %b %Y') }}</div></div>
+        </div>
+        {% if post.image %}<img class="post-img" src="{{ url_for('static', filename='uploads/' + post.image) }}">{% endif %}
+        <div class="post-caption">{{ post.caption }}</div>
+      </div>
+    {% else %}
+      <p class="empty">No posts yet.</p>
+    {% endfor %}
+  </section>
+
+  <section id="reviews" class="section">
+    <h3>Reviews</h3>
+    {% if current_user.is_authenticated and current_user.id != farm.owner_id %}
+      <form method="post" action="{{ url_for('add_review', farm_id=farm.id) }}" class="form-card wide" style="margin:0 0 20px;">
+        <div class="form-group">
+          <label>Rating</label>
+          <select name="rating">
+            <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
+            <option value="4">⭐⭐⭐⭐ Good</option>
+            <option value="3">⭐⭐⭐ Average</option>
+            <option value="2">⭐⭐ Poor</option>
+            <option value="1">⭐ Bad</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Your review</label>
+          <textarea name="review_text" rows="3" placeholder="Share your experience..."></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit">Submit Review</button>
+      </form>
+    {% endif %}
+    {% for r in reviews %}
+      <div class="review">
+        <div class="stars">{{ '⭐' * r.rating }}</div>
+        <b>{{ r.customer.name }}</b> — <span style="color:#7a8577;font-size:13px;">{{ r.created_at.strftime('%d %b %Y') }}</span>
+        <p>{{ r.review_text }}</p>
+      </div>
+    {% else %}
+      <p class="empty">No reviews yet.</p>
+    {% endfor %}
+  </section>
+
+  <section id="location" class="section">
+    <h3>Location</h3>
+    <p>{{ farm.village }}, {{ farm.district }} — {{ farm.pincode }}</p>
+    {% if farm.map_url %}<a href="{{ farm.map_url }}" target="_blank" class="btn btn-outline">Open in Google Maps</a>{% endif %}
+  </section>
+</div>
+
+<script>
+const btn = document.getElementById('follow-btn');
+if (btn) {
+  btn.addEventListener('click', async () => {
+    const res = await fetch(`/farm/${btn.dataset.farm}/follow`, {method: 'POST'});
+    const data = await res.json();
+    btn.textContent = data.following ? 'Following' : 'Follow';
+    btn.classList.toggle('btn-ghost', data.following);
+    btn.classList.toggle('btn-primary', !data.following);
+  });
+}
+</script>
+{% endblock %}

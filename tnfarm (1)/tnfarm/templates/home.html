@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<div class="hero">
+  <div class="container">
+    <h1>Discover farmers. Buy direct. Build community.</h1>
+    <p>TNFarm connects you with local farms across Tamil Nadu — browse fresh produce, follow farmers, and visit them directly.</p>
+    <form class="search-box" method="get" action="{{ url_for('home') }}">
+      <input type="text" name="q" placeholder="Search farm, village or district..." value="{{ q }}">
+      <select name="district">
+        <option value="">All Districts</option>
+        {% for d in TN_DISTRICTS %}
+          <option value="{{ d }}" {% if d == district %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary" type="submit">Search</button>
+    </form>
+  </div>
+</div>
+
+<div class="container">
+
+{% if search_results is not none %}
+  <section class="section">
+    <div class="section-head"><h2>Search results ({{ search_results|length }})</h2></div>
+    {% if search_results %}
+    <div class="grid grid-3">
+      {% for farm in search_results %}
+        <a class="card" href="{{ url_for('farm_profile', farm_id=farm.id) }}">
+          <img class="card-img" src="{{ url_for('static', filename='uploads/' + farm.cover_photo) if farm.cover_photo != 'default-cover.jpg' else url_for('static', filename='img/default-cover.jpg') }}" onerror="this.style.display='none'">
+          <div class="card-body">
+            <p class="card-title">{{ farm.farm_name }}</p>
+            <p class="card-sub">{{ farm.village }}, {{ farm.district }}</p>
+            {% if farm.organic_status == 'Certified' %}<span class="badge badge-organic">Organic Certified</span>{% endif %}
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+    {% else %}
+      <p class="empty">No farms matched your search. Try another village or district.</p>
+    {% endif %}
+  </section>
+{% endif %}
+
+<section class="section">
+  <div class="section-head"><h2>Categories</h2></div>
+  <div class="grid grid-4">
+    {% for cat in categories %}
+      <a class="card" href="{{ url_for('products', category=cat.id) }}">
+        <div class="card-body" style="text-align:center;">
+          <div style="font-size:26px;">🌿</div>
+          <p class="card-title">{{ cat.name }}</p>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2>Featured Farms</h2>
+    <a href="{{ url_for('products') }}">Browse all →</a>
+  </div>
+  <div class="grid grid-3">
+    {% for farm in featured_farms %}
+      <a class="card" href="{{ url_for('farm_profile', farm_id=farm.id) }}">
+        <div class="card-body">
+          <p class="card-title">{{ farm.farm_name }} {% if farm.verified %}✅{% endif %}</p>
+          <p class="card-sub">{{ farm.village }}, {{ farm.district }}</p>
+          <span class="badge">{{ farm.follower_count }} followers · ⭐ {{ farm.avg_rating }}</span>
+        </div>
+      </a>
+    {% else %}
+      <p class="empty">No farms yet — be the first to <a href="{{ url_for('register', role='farmer') }}">join as a farmer</a>.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2>Trending Products</h2>
+    <a href="{{ url_for('products') }}">See all →</a>
+  </div>
+  <div class="grid grid-4">
+    {% for p in trending_products %}
+      <a class="card" href="{{ url_for('product_detail', product_id=p.id) }}">
+        <div class="card-body">
+          <p class="card-title">{{ p.name }}</p>
+          <p class="card-sub">{{ p.farm.farm_name }}</p>
+          <p class="price">₹{{ p.price|round(2) }} / {{ p.unit }}</p>
+          {% if p.is_organic %}<span class="badge badge-organic">Organic</span>{% endif %}
+        </div>
+      </a>
+    {% else %}
+      <p class="empty">No products listed yet.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2>Recent Posts</h2>
+    <a href="{{ url_for('feed') }}">Go to feed →</a>
+  </div>
+  <div class="grid grid-3">
+    {% for post in recent_posts %}
+      <a class="card" href="{{ url_for('feed') }}">
+        <div class="card-body">
+          <p class="card-sub">{{ post.author.name }} · {{ post.location or '' }}</p>
+          <p class="card-title">{{ post.caption[:80] }}{% if post.caption|length > 80 %}…{% endif %}</p>
+          <span class="badge">❤️ {{ post.like_count }} · 💬 {{ post.comment_count }}</span>
+        </div>
+      </a>
+    {% else %}
+      <p class="empty">No posts yet.</p>
+    {% endfor %}
+  </div>
+</section>
+
+</div>
+{% endblock %}

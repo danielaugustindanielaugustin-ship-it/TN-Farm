@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}TNFarm{% endblock %} · TNFarm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<header class="navbar">
+  <div class="container navbar-inner">
+    <a href="{{ url_for('home') }}" class="brand">🌾 TNFarm</a>
+    <nav class="nav-links">
+      <a href="{{ url_for('home') }}">Home</a>
+      <a href="{{ url_for('products') }}">Products</a>
+      <a href="{{ url_for('feed') }}">Feed</a>
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('inbox') }}">Messages</a>
+        <a href="{{ url_for('notifications') }}">🔔</a>
+        {% if current_user.is_admin %}<a href="{{ url_for('admin_dashboard') }}">Admin</a>{% endif %}
+        <span class="nav-user">Hi, {{ current_user.name.split(' ')[0] }}</span>
+        <a href="{{ url_for('logout') }}" class="btn btn-ghost">Logout</a>
+      {% else %}
+        <a href="{{ url_for('login') }}">Login</a>
+        <a href="{{ url_for('register', role='farmer') }}" class="btn btn-primary">Join as Farmer</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-stack">
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+  </div>
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <div>
+      <div class="brand">🌾 TNFarm</div>
+      <p>Discover farmers. Build community. Buy direct.</p>
+    </div>
+    <div>
+      <h4>Explore</h4>
+      <a href="{{ url_for('products') }}">Products</a>
+      <a href="{{ url_for('feed') }}">Social Feed</a>
+    </div>
+    <div>
+      <h4>For Farmers</h4>
+      <a href="{{ url_for('register', role='farmer') }}">Create your farm profile</a>
+    </div>
+  </div>
+  <p class="copyright">© {{ current_year }} TNFarm — Farmer Discovery &amp; Social Commerce Platform for Tamil Nadu.</p>
+</footer>
+
+<!-- AI Chatbot Widget -->
+<div id="tnfarm-chatbot">
+  <button id="chatbot-toggle" aria-label="Open TNFarm assistant">🌾 💬</button>
+  <div id="chatbot-panel" class="hidden">
+    <div class="chatbot-header">
+      <span>🌾 TNFarm Assistant</span>
+      <button id="chatbot-close" aria-label="Close">✕</button>
+    </div>
+    <div id="chatbot-messages">
+      <div class="bot-msg">Vanakkam! 👋 Ask me about registering, farms, products, or how to sell on TNFarm.</div>
+    </div>
+    <form id="chatbot-form">
+      <input type="text" id="chatbot-input" placeholder="Type your question..." autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  const toggle = document.getElementById('chatbot-toggle');
+  const panel = document.getElementById('chatbot-panel');
+  const closeBtn = document.getElementById('chatbot-close');
+  const form = document.getElementById('chatbot-form');
+  const input = document.getElementById('chatbot-input');
+  const messages = document.getElementById('chatbot-messages');
+
+  toggle.addEventListener('click', () => panel.classList.toggle('hidden'));
+  closeBtn.addEventListener('click', () => panel.classList.add('hidden'));
+
+  function addMessage(text, sender) {
+    const div = document.createElement('div');
+    div.className = sender === 'user' ? 'user-msg' : 'bot-msg';
+    div.textContent = text;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    addMessage(text, 'user');
+    input.value = '';
+    try {
+      const res = await fetch('/api/chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json();
+      addMessage(data.reply, 'bot');
+    } catch (err) {
+      addMessage("Sorry, I couldn't reach the server. Please try again.", 'bot');
+    }
+  });
+})();
+</script>
+</body>
+</html>

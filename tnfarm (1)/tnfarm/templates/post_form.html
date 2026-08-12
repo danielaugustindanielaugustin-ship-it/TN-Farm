@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}New Post{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="form-card">
+    <h2 class="form-title">Share an update</h2>
+    <form method="post" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>Photo</label>
+        <input type="file" name="image" accept="image/*">
+      </div>
+      <div class="form-group">
+        <label>Caption</label>
+        <textarea name="caption" id="caption" rows="4" placeholder="What's happening on the farm today?"></textarea>
+        <button type="button" class="ai-suggest-btn" id="ai-suggest-caption">✨ Suggest with AI</button>
+      </div>
+      <div class="form-group">
+        <label>Location</label>
+        <input type="text" name="location" id="location" placeholder="e.g. Tiruvallur">
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Publish Post</button>
+    </form>
+  </div>
+</div>
+<script>
+document.getElementById('ai-suggest-caption').addEventListener('click', async (e) => {
+  const btn = e.target;
+  const location = document.getElementById('location').value || '';
+  btn.disabled = true;
+  btn.textContent = 'Generating...';
+  try {
+    const res = await fetch('/api/suggest-post-caption', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ location })
+    });
+    const data = await res.json();
+    document.getElementById('caption').value = data.caption;
+  } catch (err) {
+    alert('Could not generate a suggestion right now.');
+  }
+  btn.disabled = false;
+  btn.textContent = '✨ Suggest with AI';
+});
+</script>
+{% endblock %}

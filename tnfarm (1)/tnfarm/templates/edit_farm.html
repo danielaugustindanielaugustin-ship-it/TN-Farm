@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Edit Farm{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="form-card wide">
+    <h2 class="form-title">Edit Farm Profile</h2>
+    <form method="post" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>Farm Name</label>
+        <input type="text" name="farm_name" value="{{ farm.farm_name }}" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Village</label>
+          <input type="text" name="village" value="{{ farm.village or '' }}">
+        </div>
+        <div class="form-group">
+          <label>District</label>
+          <select name="district">
+            <option value="">Select district</option>
+            {% for d in TN_DISTRICTS %}
+              <option value="{{ d }}" {% if d == farm.district %}selected{% endif %}>{{ d }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Pincode</label>
+          <input type="text" name="pincode" value="{{ farm.pincode or '' }}">
+        </div>
+        <div class="form-group">
+          <label>Experience (years)</label>
+          <input type="number" name="experience_years" value="{{ farm.experience_years or 0 }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Organic Status</label>
+          <select name="organic_status">
+            {% for opt in ['Certified', 'In-Conversion', 'Not Certified'] %}
+              <option value="{{ opt }}" {% if opt == farm.organic_status %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Farm Area</label>
+          <input type="text" name="farm_area" value="{{ farm.farm_area or '' }}" placeholder="e.g. 4 acres">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>About the farm</label>
+        <textarea name="description" rows="4">{{ farm.description or '' }}</textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Logo</label>
+          <input type="file" name="logo" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label>Cover Photo</label>
+          <input type="file" name="cover_photo" accept="image/*">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Latitude</label>
+          <input type="text" name="latitude" value="{{ farm.latitude or '' }}">
+        </div>
+        <div class="form-group">
+          <label>Longitude</label>
+          <input type="text" name="longitude" value="{{ farm.longitude or '' }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Google Maps URL</label>
+        <input type="text" name="map_url" value="{{ farm.map_url or '' }}">
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

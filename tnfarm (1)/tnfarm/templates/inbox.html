@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Messages{% endblock %}
+{% block content %}
+<div class="container">
+  <h2>Messages</h2>
+  {% if partners %}
+    <table>
+      <tr><th>Contact</th><th>Role</th><th></th></tr>
+      {% for p in partners %}
+        <tr>
+          <td>{{ p.name }}</td>
+          <td>{{ p.role|capitalize }}</td>
+          <td><a href="{{ url_for('conversation', user_id=p.id) }}" class="btn btn-sm btn-outline">Open chat</a></td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p class="empty">No conversations yet. Visit a farm profile and click "Message" to start chatting.</p>
+  {% endif %}
+</div>
+{% endblock %}
